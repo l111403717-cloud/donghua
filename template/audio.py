@@ -219,6 +219,34 @@ def build(dur=None, sr=SR):
         place(L, b, at(bar, beat), 0.20)
         place(R, b, at(bar, beat), 0.16)
 
+def load_voice(sr=SR):
+    """Load optional speech voiceover from assets/voice.wav."""
+    import os
+    import wave
+    here = os.path.dirname(os.path.abspath(__file__))
+    root = os.path.dirname(here)
+    path = os.path.join(root, "assets", "voice.wav")
+    if not os.path.exists(path):
+        return None
+    with wave.open(path, "rb") as w:
+        n_ch = w.getnchannels()
+        src_sr = w.getframerate()
+        raw = w.readframes(w.getnframes())
+        arr = np.frombuffer(raw, dtype="<i2").astype(np.float32) / 32767.0
+        if n_ch > 1:
+            arr = arr.reshape(-1, n_ch)
+        else:
+            arr = np.stack([arr, arr], -1)
+        if src_sr != sr:
+            num_out = int(round(len(arr) * float(sr) / src_sr))
+            idx = np.linspace(0, len(arr) - 1, num_out)
+            i0 = np.floor(idx).astype(int)
+            i1 = np.minimum(i0 + 1, len(arr) - 1)
+            frac = (idx - i0)[:, None]
+            arr = arr[i0] * (1.0 - frac) + arr[i1] * frac
+        return arr
+
+
     # --- mix
     L = filt(L, sr, lp(15500, 2.2)).astype(np.float32)
     R = filt(R, sr, lp(15500, 2.2)).astype(np.float32)
@@ -228,6 +256,13 @@ def build(dur=None, sr=SR):
     R = reverb_tail(R, sr, taps=((0.103, 0.17), (0.173, 0.10), (0.263, 0.06)))
 
     st = np.stack([L, R], -1)
+
+    # Auto-mix voiceover if assets/voice.wav exists
+    voice = load_voice(sr)
+    if voice is not None:
+        vl = min(len(st), len(voice))
+        st[:vl] = st[:vl] * 0.42 + voice[:vl] * 0.85
+
     peak = float(np.abs(st).max())
     st = np.tanh(st / max(peak, 1e-6) * 1.9) / np.tanh(1.9)
     f = int(0.012 * sr)
@@ -239,4 +274,4 @@ def build(dur=None, sr=SR):
     return st.astype(np.float32), sr
 
 
-__all__ = ["build", "write_wav", "analyse", "analyse_beats", "SR"]
+__all__ = ["build", "write_wav", "analyse", "analyse_beats", "SR", "load_voice"]

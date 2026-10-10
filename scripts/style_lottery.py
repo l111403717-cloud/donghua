@@ -279,7 +279,32 @@ CARDS = [
 ]
 
 
+def get_director_handbook(card: dict) -> dict:
+    cid = card.get("id", "")
+    trans = card.get("transitions")
+    if not trans:
+        if "hud" in cid:
+            trans = ["slide", "channel_snap", "wipe"]
+        elif "riso" in cid or "letterpress" in cid:
+            trans = ["wipe", "slide"]
+        elif "soft" in cid or "darkroom" in cid:
+            trans = ["zoom_through", "wipe"]
+        elif "kinetic" in cid:
+            trans = ["slide", "channel_snap"]
+        else:
+            trans = ["slide", "wipe", "zoom_through", "channel_snap"]
+
+    return {
+        "transitions": trans,
+        "overlap": card.get("overlap", "0.4s ~ 0.6s"),
+        "text_density": card.get("text_density", "单屏 <= 2 层, 面积 <= 12%, 留白 >= 60%"),
+        "allow_hard_cut": card.get("allow_hard_cut", cid == "neon-hud"),
+        "chrome_recommendation": card.get("chrome_recommendation", "hud" if cid == "neon-hud" else ("none" if "riso" in cid else "gallery")),
+    }
+
+
 def card_markdown(card):
+    hb = get_director_handbook(card)
     lines = [
         "# STYLE — %s  (`%s`)" % (card["name"], card["id"]),
         "",
@@ -291,6 +316,7 @@ def card_markdown(card):
         "| 字体 | %s |" % card["type"],
         "| 音乐 | %s |" % card["sound"],
         "| 引擎 | %s |" % card["engine"],
+        "| 外框推荐 | %s |" % hb["chrome_recommendation"],
         "| 排版空间 | %s |" % ("交付尺寸（网点/纹理要原生清晰）"
                                if card.get("author_at_delivery")
                                else "默认：W,H = 1280x720，交付 1920x1080"),
@@ -299,13 +325,31 @@ def card_markdown(card):
         "",
     ]
     lines += ["- %s" % m for m in card["moves"]]
-    lines += ["", "## 注意", "", card["note"], ""]
+    lines += [
+        "",
+        "## 导演手册（转场编舞与排版减法）",
+        "",
+        "| 规则维度 | 规划参数 |",
+        "|---|---|",
+        "| 推荐转场集合 | %s |" % ", ".join(hb["transitions"]),
+        "| 重叠过渡区间 | %s |" % hb["overlap"],
+        "| 排版密度红线 | %s |" % hb["text_density"],
+        "| 允许硬切次数 | %s |" % ("全片最多 1 次（节奏重音）" if hb["allow_hard_cut"] else "严禁硬切（全片平滑动量承接）"),
+        "| 外框默认模式 | %s |" % hb["chrome_recommendation"],
+        "",
+        "## 注意",
+        "",
+        card["note"],
+        "",
+    ]
     return "\n".join(lines)
 
 
 def draw(rng, avoid=()):
     pool = [c for c in CARDS if c["id"] not in avoid] or CARDS
-    return rng.choice(pool)
+    card = dict(rng.choice(pool))
+    card["director_handbook"] = get_director_handbook(card)
+    return card
 
 
 def main():
@@ -315,7 +359,7 @@ def main():
     ap.add_argument("--list", action="store_true", help="print the deck and exit")
     ap.add_argument("--json", action="store_true", help="machine-readable draw")
     ap.add_argument("--write", default=None,
-                    help="project directory: also write STYLE.md there")
+                    help="project directory: also write STYLE.md and brief.json there")
     a = ap.parse_args()
 
     if a.list:
@@ -339,7 +383,10 @@ def main():
         path = os.path.join(dest, "STYLE.md")
         with open(path, "w", encoding="utf-8") as fh:
             fh.write(card_markdown(card))
-        print("wrote %s" % path)
+        brief_path = os.path.join(dest, "brief.json")
+        with open(brief_path, "w", encoding="utf-8") as fh:
+            json.dump(card, fh, ensure_ascii=False, indent=2)
+        print("wrote %s and %s" % (path, brief_path))
 
 
 if __name__ == "__main__":

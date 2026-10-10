@@ -82,6 +82,16 @@ TRACK_WORD = -3.5
 TRACK_SUB = 3.2
 TRACK_HUD = 1.5
 
+# --- Chrome & Frame configuration --------------------------------------------
+# 三档外框模式：
+# "none": 零开销纯净模式，无外框
+# "gallery": 默认推荐。极简 1px 发丝内框 + 轻微暗角，默认无外框文字（极简留白）
+# "hud": 科技工程感 HUD 套件（四角标尺/时间码/进度条）
+CHROME_STYLE = "gallery"
+CHROME_TEXT = False          # 全局外框文字开关（即便 hud 模式也可禁掉所有外框文字）
+GALLERY_INSET = 48           # gallery 模式边框内缩边距 (px)
+TITLE = BRAND                # 片头/片尾微弱标题（仅当 CHROME_TEXT=True 时在首尾淡入淡出）
+
 # --- HUD chrome -------------------------------------------------------------
 M = 58.0           # live-area margin for panel-style layouts
 HUD_M = 27.0

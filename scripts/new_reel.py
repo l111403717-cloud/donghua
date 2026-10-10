@@ -105,6 +105,9 @@ def main():
                 sys.exit("unknown style card %r — see style_lottery.py --list" % a.style)
         with open(os.path.join(dest, "STYLE.md"), "w", encoding="utf-8") as fh:
             fh.write(card_markdown(style))
+        with open(os.path.join(dest, "brief.json"), "w", encoding="utf-8") as fh:
+            import json
+            json.dump(style, fh, ensure_ascii=False, indent=2)
 
     print("created", dest)
     print("  package     ", pkg)

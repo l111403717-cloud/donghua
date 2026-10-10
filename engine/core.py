@@ -573,8 +573,25 @@ class Canvas:
         Values were authored as sRGB from the start (ink #05080D is 5/8/13), so
         encoding again would lift every dark by ~2.5x against the reference.
         """
-        a = clip01(self._rgb)
+        a = clip01(self._rgb + self._add)
         return Image.fromarray((a * 255.0 + 0.5).astype(np.uint8), "RGB")
+
+    def to_array(self) -> np.ndarray:
+        """Return the current composed frame as uint8 (H, W, 3) ndarray."""
+        a = clip01(self._rgb + self._add)
+        return (a * 255.0 + 0.5).astype(np.uint8)
+
+    @classmethod
+    def from_array(cls, arr: np.ndarray, w: int = None, h: int = None) -> Canvas:
+        """Create a Canvas pre-filled with an RGB uint8 or float ndarray."""
+        arr = np.asarray(arr)
+        ah, aw = arr.shape[:2]
+        cv = cls(w or aw, h or ah, out=(aw, ah))
+        if arr.dtype == np.uint8:
+            cv._rgb[...] = arr.astype(np.float32) / 255.0
+        else:
+            cv._rgb[...] = clip01(arr).astype(np.float32)
+        return cv
 
 
 
@@ -753,8 +770,17 @@ class _Pass:
         self._fill(color, grad, alpha)
 
     # -- type -------------------------------------------------------------
+    def _record_budget(self, level: int, text: str):
+        if not self._dirty:
+            return
+        from .budget import get_budget
+        budget = get_budget()
+        if budget:
+            bx0, by0, bx1, by1 = self._dirty
+            budget.record(level, (bx0 / self.ss, by0 / self.ss, bx1 / self.ss, by1 / self.ss), text)
+
     def text(self, x, y, s, f, color=None, track=0.0, anchor="ls", alpha=1.0,
-             grad=None, horizontal=False):
+             grad=None, horizontal=False, level: int = 1):
         """Draw `s` with origin (x, y).
 
         anchor: [l|m|r] horizontal, [s|t|m|b] vertical (s = baseline,
@@ -786,6 +812,7 @@ class _Pass:
             for ch, ox in zip(s, F.kerned_layout(sf, s, track * ss)):
                 d.text((px * ss + ox, py * ss), ch, font=sf, fill=255, anchor="ls")
         self._fill(color, grad, alpha, horizontal)
+        self._record_budget(level, s)
         return wdt
 
     def _text_mask(self, x, y, s, f, track):
@@ -808,7 +835,7 @@ class _Pass:
         return tmp, wdt
 
     def text_slices(self, x, y, s, f, color=None, track=0.0, n=8, offsets=None,
-                    alpha=1.0, grad=None, anchor="ls"):
+                    alpha=1.0, grad=None, anchor="ls", level: int = 1):
         """Draw `s` cut into `n` horizontal bands, each shifted by offsets[i].
 
         This is the mechanical glitch/slice language: the word stays readable
@@ -852,9 +879,10 @@ class _Pass:
         )
         self._apply_clip()
         self._fill(color, grad, alpha)
+        self._record_budget(level, s)
         return wdt
 
-    def text_outline(self, x, y, s, f, color, track=0.0, width=1.6, alpha=1.0):
+    def text_outline(self, x, y, s, f, color, track=0.0, width=1.6, alpha=1.0, level: int = 1):
         """Stroke-only text: outer mask minus a copy eroded by `width`.
 
         Erosion runs on the crop around the glyphs, not the full supersampled
@@ -879,10 +907,11 @@ class _Pass:
         self._m.paste(ring.crop(rb), (px, py))
         self._dirty = (px, py, cx0 + rb[2], cy0 + rb[3])
         self._stamp(color, alpha)
+        self._record_budget(level, s)
         return wdt
 
     def text_scaled(self, x, y, s, f, color, track=0.0, sx=1.0, sy=1.0,
-                    anchor="ls", alpha=1.0, grad=None):
+                    anchor="ls", alpha=1.0, grad=None, level: int = 1):
         """True anisotropic scaling of the glyphs about the anchor point.
 
         Push/pop only moves a text origin — glyph bitmaps are drawn at their
@@ -924,6 +953,7 @@ class _Pass:
         self._m.paste(sub, (int(round(px)), int(round(py))))
         self._dirty = self._m.getbbox()
         self._fill(color, grad, alpha)
+        self._record_budget(level, s)
         return wdt
 
     # -- clipping ---------------------------------------------------------
@@ -987,4 +1017,4 @@ def dim_line(p, x0, x1, y, color, alpha=0.8, width=1.0, tick=6.0, label=None, f=
     p.line([(x0, y - tick), (x0, y + tick)], color, width, alpha)
     p.line([(x1, y - tick), (x1, y + tick)], color, width, alpha)
     if label and f:
-        p.text(x0 + (x1 - x0) / 2, y - label_gap, label, f, color, anchor="mb", alpha=alpha)
+        p.text(x0 + (x1 - x0) / 2, y - label_gap, label, f, color, anchor="mb", alpha=alpha, level=2)
