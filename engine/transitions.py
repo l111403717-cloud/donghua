@@ -5,6 +5,9 @@ Turns hard scene cuts into momentum-driven transitions:
 - Slide: continuous motion slide with optional parallax
 - ZoomThrough: punch-through scale transition
 - ChannelSnap: RGB misregistration snap
+- IrisShutter: mechanical circular / iris aperture opening or closing
+- FlashBurst: high-intensity optical energy burst for impacts/explosions
+- CurtainSplit: bilateral blast door / mechanical sliding panel split
 """
 from __future__ import annotations
 
@@ -47,7 +50,10 @@ def _zoom(arr: np.ndarray, scale: float, center=(0.5, 0.5)) -> np.ndarray:
     nw = max(2, int(round(w * scale)))
     nh = max(2, int(round(h * scale)))
 
-    im = Image.fromarray((clip01(arr) * 255.0 + 0.5).astype(np.uint8))
+    if arr.dtype == np.uint8:
+        im = Image.fromarray(arr)
+    else:
+        im = Image.fromarray((clip01(arr) * 255.0 + 0.5).astype(np.uint8))
     im_scaled = im.resize((nw, nh), Image.BILINEAR)
 
     # Re-crop or pad to original (w, h) about (cx, cy)
@@ -59,7 +65,7 @@ def _zoom(arr: np.ndarray, scale: float, center=(0.5, 0.5)) -> np.ndarray:
 
     out_im = Image.new("RGB", (w, h), (0, 0, 0))
     out_im.paste(im_scaled, (-x0, -y0))
-    return np.asarray(out_im, np.float32) / 255.0
+    return np.asarray(out_im, np.uint8)
 
 
 class Transition:
@@ -97,7 +103,8 @@ class Wipe(Transition):
         edge = p * (1.0 + 2.0 * self.softness) - self.softness
         mask = np.clip((edge - axis) / (2.0 * self.softness) + 0.5, 0.0, 1.0)
         mask = mask[None, :, None] if self.direction in ("left", "right") else mask[:, None, None]
-        return A_frame * (1.0 - mask) + B_frame * mask
+        res = A_frame.astype(np.float32) * (1.0 - mask) + B_frame.astype(np.float32) * mask
+        return np.clip(res, 0.0, 255.0).astype(np.uint8)
 
 
 class Slide(Transition):
@@ -147,13 +154,13 @@ class ZoomThrough(Transition):
         scale_a = 1.0 + p * (self.strength - 1.0)
         scale_b = 1.0 / self.strength + (1.0 - 1.0 / self.strength) * p
 
-        a = _zoom(A_frame, scale_a, self.center)
-        b = _zoom(B_frame, scale_b, self.center)
+        a = _zoom(A_frame, scale_a, self.center).astype(np.float32)
+        b = _zoom(B_frame, scale_b, self.center).astype(np.float32)
 
-        # 中段平滑交叉淡化
         mix = np.clip((p - 0.35) / 0.30, 0.0, 1.0)
         mix = mix * mix * (3.0 - 2.0 * mix)
-        return a * (1.0 - mix) + b * mix
+        res = a * (1.0 - mix) + b * mix
+        return np.clip(res, 0.0, 255.0).astype(np.uint8)
 
 
 class ChannelSnap(Transition):
@@ -174,3 +181,70 @@ class ChannelSnap(Transition):
             if shift_amt != 0:
                 out[..., c] = np.roll(base[..., c], shift_amt, axis=1)
         return out
+
+
+class IrisShutter(Transition):
+    """机械光圈快门：圆形精密机械孔径由内向外绽开或收拢。"""
+
+    def __init__(self, mode="open", center=(0.5, 0.5), softness=0.04, overlap=0.7, why=""):
+        self.mode = mode
+        self.center = center
+        self.softness = softness
+        self.overlap = overlap
+        self.why = why or f"IrisShutter {mode}"
+        self.momentum = (0.0, 0.0)
+
+    def apply(self, A_frame: np.ndarray, B_frame: np.ndarray, p: float) -> np.ndarray:
+        p = self.ease(p)
+        h, w = A_frame.shape[:2]
+        cx, cy = self.center[0] * w, self.center[1] * h
+        y, x = np.ogrid[:h, :w]
+        dist = np.sqrt((x - cx) ** 2 + (y - cy) ** 2).astype(np.float32)
+        max_dist = np.sqrt(max(cx, w - cx) ** 2 + max(cy, h - cy) ** 2)
+
+        r_curr = max_dist * p if self.mode == "open" else max_dist * (1.0 - p)
+        s_px = max(1.0, max_dist * self.softness)
+        mask = np.clip((dist - r_curr) / (2.0 * s_px) + 0.5, 0.0, 1.0)
+        if self.mode == "open":
+            mask = 1.0 - mask
+        mask = mask[:, :, None]
+        res = A_frame.astype(np.float32) * (1.0 - mask) + B_frame.astype(np.float32) * mask
+        return np.clip(res, 0.0, 255.0).astype(np.uint8)
+
+
+class FlashBurst(Transition):
+    """能量暴击耀斑：在转场中点爆发出高光耀斑（适用于碰撞与大爆炸瞬间）。"""
+
+    def __init__(self, overlap=0.6, peak=0.88, color=(255, 245, 230), why=""):
+        self.overlap = overlap
+        self.peak = peak
+        self.flash_col = np.array(color, dtype=np.float32)
+        self.why = why or "FlashBurst"
+        self.momentum = (0.0, 0.0)
+
+    def apply(self, A_frame: np.ndarray, B_frame: np.ndarray, p: float) -> np.ndarray:
+        pe = self.ease(p)
+        base = A_frame.astype(np.float32) * (1.0 - pe) + B_frame.astype(np.float32) * pe
+        flash_k = float(np.exp(-((p - 0.5) / 0.18) ** 2) * self.peak)
+        res = base * (1.0 - flash_k) + self.flash_col * flash_k
+        return np.clip(res, 0.0, 255.0).astype(np.uint8)
+
+
+class CurtainSplit(Transition):
+    """机械双移门：左右对称推开揭示下一幕。"""
+
+    def __init__(self, overlap=0.7, softness=0.03, why=""):
+        self.overlap = overlap
+        self.softness = softness
+        self.why = why or "CurtainSplit"
+        self.momentum = (0.0, 0.0)
+
+    def apply(self, A_frame: np.ndarray, B_frame: np.ndarray, p: float) -> np.ndarray:
+        p = self.ease(p)
+        h, w = A_frame.shape[:2]
+        x = np.linspace(-1.0, 1.0, w, dtype=np.float32)
+        dist = np.abs(x)
+        s = max(0.01, self.softness)
+        mask = np.clip((dist - p) / s + 0.5, 0.0, 1.0)[None, :, None]
+        res = B_frame.astype(np.float32) * (1.0 - mask) + A_frame.astype(np.float32) * mask
+        return np.clip(res, 0.0, 255.0).astype(np.uint8)

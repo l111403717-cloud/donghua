@@ -276,6 +276,21 @@ CARDS = [
                 "否则底板自己够格当高光，整帧洗白。品牌色与 logo 必须取官网真素材实测，"
                 "不能凭印象挑色、不能手画标。所有上屏数字要能对上代码常量。",
     },
+    {
+        "id": "isometric-anatomy",
+        "name": "等轴测机械解剖 · 精密仪器",
+        "idiom": "高密度工业机械解剖与实体隐喻：四阶金属明暗、导轨、精密表盘、弹簧与爆炸图悬浮分解。",
+        "plate": "冷灰工程底板（#EEF0F4）或炭黑板，搭配工业专色（安全橙 #EE5C26、翠绿或钛蓝）",
+        "moves": ["等轴测视角（Isometric 45°/30°），用真实物理机械隐喻抽象概念",
+                  "四阶金属明暗着色（Four-tone Shading）与高光倒角",
+                  "精密机械运动：双导轨滑块、弹簧推杆、压力表指针偏转",
+                  "关键高潮：爆炸图拆解（Exploded View），零件悬空悬浮展示内部精密构造",
+                  "铭牌、刻度标尺、微动开关、螺栓与导管（engine/iso.py 原语）"],
+        "type": "DIN / 等宽工程体（JBMono）做读数与规格标注，大标题用克制有力的无衬线体",
+        "sound": "88~112 BPM，精密机械钟表发条、微动开关咔哒声与沉稳低音",
+        "engine": "iso（等轴测图元库）+ core 矢量超采样",
+        "note": "不要画抽象漂浮色块。每个零件必须有厚度、有倒角、有装配依据与支撑底座。",
+    },
 ]
 
 
@@ -284,15 +299,17 @@ def get_director_handbook(card: dict) -> dict:
     trans = card.get("transitions")
     if not trans:
         if "hud" in cid:
-            trans = ["slide", "channel_snap", "wipe"]
+            trans = ["slide", "channel_snap", "wipe", "flash_burst"]
         elif "riso" in cid or "letterpress" in cid:
-            trans = ["wipe", "slide"]
+            trans = ["wipe", "slide", "curtain_split"]
         elif "soft" in cid or "darkroom" in cid:
-            trans = ["zoom_through", "wipe"]
+            trans = ["zoom_through", "wipe", "flash_burst"]
         elif "kinetic" in cid:
-            trans = ["slide", "channel_snap"]
+            trans = ["slide", "channel_snap", "flash_burst"]
+        elif "anatomy" in cid:
+            trans = ["curtain_split", "iris_shutter", "flash_burst", "channel_snap", "zoom_through", "slide"]
         else:
-            trans = ["slide", "wipe", "zoom_through", "channel_snap"]
+            trans = ["slide", "wipe", "zoom_through", "channel_snap", "iris_shutter", "curtain_split"]
 
     return {
         "transitions": trans,

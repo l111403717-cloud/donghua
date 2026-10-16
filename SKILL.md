@@ -24,6 +24,7 @@ description: 用代码生成动态图形（Motion Graphics）与短视频成片�
 | **恒星 / 普朗克真彩色** | 深棕余烬底 + 黑体色温条 + 光谱线，没有一个是挑的 | 普朗克→CIE 1931→sRGB 反解颜色、点云磁流管、真谱线 |
 | **紫外光刻 / 半导体** | 近黑冷蓝腔体 + 405 nm 紫外紫 + 氧化层彩虹，一条片子走完版图→掩膜→曝光→显影→探针→划片 | 薄膜干涉真彩、递归版图生成、衍射曝光场（振幅孔径过环形 PSF 再平方）、彩色点云（每点带自己的颜色） |
 | **品牌亮色产品片** | 品牌自己的纸白 + 品牌色满幅，迪多尼大标题骑在发丝网格上，两场暗场换气 | 官方 lockup 真素材位图、亮底反转后期、品牌色与 token 逐个实测、产品界面自绘 |
+| **等轴测机械解剖 · 精密仪器** | 冷灰工程板/炭黑底 + 四阶金属明暗、导轨、精密表盘、弹簧与爆炸图悬浮分解 | 等轴测 45°/30° 实体机械隐喻、四阶金属明暗着色、导轨滑块、弹簧推杆、压力表指针偏转、爆炸图分解（`engine/iso.py`） |
 
 > 最后一支 **LITHO**（`docs/films/litho-wafer-15s.mp4`，1080p / 160 BPM / 10 小节 × 1.5 s）是这条线的样板，
 > 同时是牌堆里的 `uv-litho`。它的颜色全部追得到物理量：曝光光 = 405 nm 反解，
@@ -37,7 +38,7 @@ description: 用代码生成动态图形（Motion Graphics）与短视频成片�
 ```bash
 python3 {skill_dir}/scripts/style_lottery.py            # 随机抽一张
 python3 {skill_dir}/scripts/style_lottery.py --seed 7   # 可复现
-python3 {skill_dir}/scripts/style_lottery.py --list     # 看整副牌（16 张）
+python3 {skill_dir}/scripts/style_lottery.py --list     # 看整副牌（17 张）
 python3 {skill_dir}/scripts/style_lottery.py --avoid neon-hud   # 上一条抽过了
 ```
 
@@ -99,6 +100,27 @@ python3 {skill_dir}/scripts/style_lottery.py --avoid neon-hud   # 上一条抽�
 4. **转场与内容绑定**：每个转场写一行"为什么"（视线引导/形状匹配/情绪转折），写入 `TRANSITION_PLAN[i].why`，没有理由的转场视为随机选择，予以重写。
 5. **每个镜头必须定义 `enter()` 与 `exit()`**：元素不是"出现"和"消失"，而是"进入"和"离开"。严禁元素在镜头最后一帧突然凭空消失。
 6. **转场期间禁止新文字入场**：文字只在转场完成后 ≥ 0.2s 才开始进入，并在下一个转场开始前 ≥ 0.2s 完成退出。
+
+### 0.3 文案驱动的多素材叙事隐喻（破除单一道具呆板循环硬规矩）
+
+> 核心准则：**严禁一条片子通篇只摆弄一个单一物体/道具**（例如 15 秒/45 秒从头到尾只有同一个时钟/表盘在那里简单旋转或拆分位移）。
+> 代码生成动效不仅是“让图形动起来”，而是“通过视觉意象与隐喻（Visual Metaphor）具象化诠释文案认知递进”。
+
+1. **全风格素材叙事隐喻体系（17 种视觉语言）**：
+   - 必须严格遵循 [`references/script-to-metaphor.md`](references/script-to-metaphor.md) 中定义的 **六幕心智演进弧线（Universal Narrative Arc）**：
+     - **第 1 幕（封闭心防 / 初始稳态）**：密闭结构、标本封签、完整几何、原版色块；
+     - **第 2 幕（微距试探 / 细部觉察）**：精密刻度推进、局部零件咬合、单色走纸套准、微观线条探测；
+     - **第 3 幕（破防裂隙 / 矛盾引爆）**：压力爆表、油墨刮刀错位撕裂、断层位移、红线预警；
+     - **第 4 幕（辐射大爆炸 / 认知跃迁）**：零件全构件悬浮重构、多色撞色喷射、版图衍射展开、光束贯通；
+     - **第 5 幕（动量互染 / 现实交融）**：齿轮导轨双向传动、网点浸润混叠、动态流线穿插；
+     - **第 6 幕（分轨重塑 / 恒定印记）**：金属精密铭牌、钢印下压定版、高阶留白呼吸定格。
+   - 每种风格必须根据剧本文案的认知演化，分镜头实例化**不同形态演进的物理/视觉载体**，绝不通篇复制单一场景。
+2. **镜头物体演进约束**：
+   - 一条视频镜头数 ≥ 4 时，至少要呈现 3 种以上不同视角、不同比例尺（宏观、微观、剖面、零件、整体）或不同实体隐喻构件；
+   - 前后镜头的道具必须有因果传承关系（例如：前镜头剖开后，后镜头进入剖开后的核心微观零件或传动导轨），严禁无理由的同一道具机械复读。
+3. **转场库扩充（Transitions Library）**：
+   - 引擎与模板现已内置：`Slide`（滑动切入）、`Wipe`（走纸扫光擦除）、`ZoomThrough`（视差穿梭）、`ChannelSnap`（RGB通道错位快切）、`IrisShutter`（机械多边形/圆形光圈快门收放）、`FlashBurst`（强光曝光爆闪换气）、`CurtainSplit`（机械双开门分轨切入）。
+   - 相邻镜头转场必须切换，转场动作与物理构件运动方向严格动量对齐（Momentum Alignment）。
 
 ---
 
@@ -180,19 +202,21 @@ python3 {skill_dir}/scripts/style_lottery.py --avoid neon-hud   # 上一条抽�
 情绪/节奏：
 ```
 
-### 1.5 小米 TTS 配音接入（Xiaomi TTS API）
+### 1.5 小米 TTS 配音接入（Xiaomi TTS API 语音合成系统）
 
-旁白文本写定后，直接使用用户配置的小米 TTS 生成配音音频（符合主题的音色与情绪控制）：
-- **API 凭据**：`sk-c4cebl17h20cecdg4rdrgldzjr0l592jgw8r4x5bkuv9dz9x`（内置预设）
-- **模型**：`mimo-v2.5-tts`
-- **音色与情绪控制**：支持在文本前置 `<style>情绪描述</style>`（例如 `<style>语速慢、温柔叙事、深沉感伤</style>` 或 `<style>语速沉稳、科技感、克制冷静</style>`）。
-- **一键生成命令**：
+旁白文本写定后，直接使用内置配置的小米 TTS 语音设计模型生成配音音频：
+- **API 凭据（应用程序接口密钥）**：`sk-c4cebl17h20cecdg4rdrgldzjr0l592jgw8r4x5bkuv9dz9x`（内置预设）
+- **模型**：`mimo-v2.5-tts-voicedesign`（声音设计定制模式）
+- **默认内置专属音色**：地道台湾腔 · 急躁动情声调版（2号定版音色）
+  - **默认提示词（Prompt）**：
+    > 一位20多岁纯正台湾国语年轻女生，地道台湾腔极其明显。声调感情非常足，语调忽高忽低、尾音自然上扬带情绪，有典型台湾女生急躁吵架、心急跺脚的语调起伏。感情非常饱满，既有恨铁不成钢的气恼，又有真情实感的痛心质问。
+- **一键生成命令**（无需额外参数，默认即调用该专属音色并自动完成 +1.8x 音量增强）：
   ```bash
   # 直接传文本生成
-  py -3 {skill_dir}/scripts/tts_voice.py --text "旁白文本..." --style "语速慢、温柔叙事、深沉感伤" --out assets/voice.wav
+  py -3 {skill_dir}/scripts/tts_voice.py --text "吼！你真的很奇怪耶！" --out assets/voice.wav
 
   # 或从文本文件读取完整旁白生成
-  py -3 {skill_dir}/scripts/tts_voice.py --file script.txt --style "语速中等、深沉反思" --out assets/voice.wav
+  py -3 {skill_dir}/scripts/tts_voice.py --file script.txt --out assets/voice.wav
   ```
 - **音频自动加载**：项目 `audio.py` 内的 `load_voice()` 会自动读取 `assets/voice.wav` 并与背景合成器音轨完美对齐混音。
 
@@ -392,10 +416,12 @@ print('mean', bg.mean(0).round(1), 'median', np.median(bg,0), 'p95', np.percenti
 | 要做的效果 | 读哪个 | 引擎入口 |
 |---|---|---|
 | 类型排版、字号标定、HUD 版式 | `references/design-grammar.md` | `engine/fonts.py`, `engine/core.py` |
+| 17 种视觉风格的文案隐喻与动态素材库 | `references/script-to-metaphor.md` | `engine/transitions.py`, `engine/iso.py` |
 | 真 3D（建模、点云渲染、隐藏线） | `references/three-d.md` | `engine/three.py` |
 | 印刷/riso 分色、叠印、纸纹 | `references/print-pipeline.md` | `engine/core.py` |
 | 颜色按物理量反解（色温 / 谱线） | `references/design-grammar.md` | `engine/color.py` |
 | 配乐合成（打击乐/贝斯/铺底/旋律） | `references/audio-dsp.md` | `engine/dsp.py` |
+| 等轴测机械与解剖图元（底座/圆柱/表盘/弹簧/标尺/爆炸图） | 基于 Anatomy 工业精工规范 | `engine/iso.py` |
 | 出片前自检、已知 bug | `references/gotchas.md` | — |
 | 渲染太慢 / 要不要上 GPU | `references/performance.md` | `scripts/perf_probe.py` |
 | 默认走哪条路线 / 显卡在哪一步出力 | `references/remotion-default.md` | — |
@@ -450,6 +476,8 @@ H.264 CRF 15~17（1080p 比 720p 吃码率，别照抄更低的档）、AAC 384k
 ├── engine/            共享引擎（复制进每个项目）
 │   ├── core.py        渲染核心：Canvas / 矢量文字通道 / bloom / 色差 / 颗粒 /
 │   │                  印刷原语（multiply 叠印、网点、纸纹、套印偏移）
+│   ├── transitions.py 转场核心：Slide, Wipe, ZoomThrough, ChannelSnap, IrisShutter, FlashBurst, CurtainSplit
+│   ├── iso.py         等轴测机械与实体解剖：四阶光影/表盘/弹簧/导轨/爆炸图
 │   ├── three.py       3D：参数曲面 / 相机 / 点云排序散射渲染 / 隐藏线
 │   ├── fonts.py       字体栈 + 字距排版 + 基线换算（含 getbbox 的 ascent 坑）
 │   ├── anim.py        缓动、错帧、值噪声
@@ -457,7 +485,7 @@ H.264 CRF 15~17（1080p 比 720p 吃码率，别照抄更低的档）、AAC 384k
 │   └── color.py       颜色按物理量反解：普朗克 / CIE 1931 / 谱线 / 色域拟合
 ├── template/          可跑的最小工程（8 场景骨架 + 一段配乐）
 ├── scripts/new_reel.py  从模板起一支新片
-├── references/        设计语法 / 3D / 印刷 / 音频 / 坑 / 性能 / 默认路线
+├── references/        文案隐喻与动态素材库 / 设计语法 / 3D / 印刷 / 音频 / 性能
 └── assets/fonts/      随包字体（Archivo Black / Inter / JetBrains Mono /
                        Bodoni Moda / Fraunces，均为 OFL，可随包分发）
 ```

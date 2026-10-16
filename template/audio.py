@@ -144,80 +144,6 @@ LEAD = [(3, 0.0, "A4"), (3, 2.0, "C5"), (4, 0.0, "E5"), (4, 2.5, "D5"),
         (6, 0.0, "E5"), (6, 1.5, "G5"), (7, 0.0, "A4")]
 
 
-def build(dur=None, sr=SR):
-    dur = dur or T.DUR
-    n = int(round(dur * sr))
-    L = np.zeros(n, np.float32)
-    R = np.zeros(n, np.float32)
-
-    def at(bar, beat=0.0):
-        return int(round((bar * T.BAR + beat * T.BEAT) * sr))
-
-    K = kick(sr)
-    CL = clap(sr)
-    HH = hat(sr)
-    HO = hat(sr, dur=0.22, open_=True)
-
-    for bar in range(T.BARS):
-        root, chord = PROG[bar]
-        full = bar not in (0,)
-        # --- pad
-        p = pad_chord([NOTE[x] for x in chord], sr, T.BAR * 1.05,
-                      cut=1650.0 if bar == 0 else 2300.0)
-        g = 0.30 if bar == 0 else (0.24 if bar == 7 else 0.20)
-        place(L, p, at(bar), g * 0.95)
-        place(R, p, at(bar), g * 1.05)
-
-        # --- sub bass
-        riff = [(0.0, 1.0), (0.75, 0.55), (1.5, 0.85), (2.25, 0.5), (3.0, 1.0)]
-        if bar == 0:
-            riff = [(0.0, 1.0), (2.0, 0.8)]
-        for off, gl in riff:
-            b = sub(NOTE[root], sr, 0.50)
-            place(L, b, at(bar, off), 0.32 * gl)
-            place(R, b, at(bar, off), 0.32 * gl)
-
-        # --- drums
-        for beat in range(4):
-            if bar == 0 and beat not in (0, 2):
-                continue
-            place(L, K, at(bar, beat), 0.88)
-            place(R, K, at(bar, beat), 0.88)
-            if beat in (1, 3):
-                place(L, CL, at(bar, beat), 0.36)
-                place(R, CL, at(bar, beat), 0.35)
-            place(L, HO, at(bar, beat + 0.5), 0.15)
-            place(R, HO, at(bar, beat + 0.5), 0.16)
-            for s_off in (0.25, 0.75):
-                place(L, HH, at(bar, beat + s_off), 0.10)
-                place(R, HH, at(bar, beat + s_off), 0.095)
-
-        # --- arpeggio: 16ths, octave-jumping, panned across the stereo field
-        if full:
-            tones = ["A4", "C5", "E5", "A4"]
-            for i in range(16):
-                nm = ARP[i % len(ARP)]
-                f = NOTE[nm] * (0.5 if (i // 8) % 2 == 1 else 1.0)
-                pl = pluck(f, sr, 0.30)
-                pan = 0.5 + 0.40 * np.sin(i * 1.13)
-                place(L, pl, at(bar, i * 0.25), 0.135 * (1.0 - pan * 0.5))
-                place(R, pl, at(bar, i * 0.25), 0.135 * pan)
-
-        # --- transitions
-        if bar in (3, 6):
-            r = riser(sr, T.BAR * 0.96, 320.0, 7000.0, seed=21 + bar)
-            place(L, r, at(bar, 0.05), 0.34)
-            place(R, r, at(bar, 0.05), 0.34)
-        if bar in (1, 4, 7):
-            im = impact(sr, 1.1, seed=51 + bar)
-            place(L, im, at(bar), 0.70 if bar == 4 else 0.52)
-            place(R, im, at(bar), 0.70 if bar == 4 else 0.52)
-
-    # --- bell lead over the back half
-    for bar, beat, nm in LEAD:
-        b = bell(NOTE[nm], sr, 1.8)
-        place(L, b, at(bar, beat), 0.20)
-        place(R, b, at(bar, beat), 0.16)
 
 def load_voice(sr=SR):
     """Load optional speech voiceover from assets/voice.wav."""
@@ -247,6 +173,83 @@ def load_voice(sr=SR):
         return arr
 
 
+def build(dur=None, sr=SR):
+    dur = dur or T.DUR
+    n = int(round(dur * sr))
+    L = np.zeros(n, np.float32)
+    R = np.zeros(n, np.float32)
+
+    def at(bar, beat=0.0):
+        return int(round((bar * T.BAR + beat * T.BEAT) * sr))
+
+    K = kick(sr)
+    CL = clap(sr)
+    HH = hat(sr)
+    HO = hat(sr, dur=0.22, open_=True)
+
+    for bar in range(T.BARS):
+        root, chord = PROG[bar % len(PROG)]
+        full = bar not in (0,)
+        # --- pad
+        p = pad_chord([NOTE[x] for x in chord], sr, T.BAR * 1.05,
+                      cut=1650.0 if bar == 0 else 2300.0)
+        g = 0.30 if bar == 0 else (0.24 if bar == T.BARS - 1 else 0.20)
+        place(L, p, at(bar), g * 0.95)
+        place(R, p, at(bar), g * 1.05)
+
+        # --- sub bass
+        riff = [(0.0, 1.0), (0.75, 0.55), (1.5, 0.85), (2.25, 0.5), (3.0, 1.0)]
+        if bar == 0:
+            riff = [(0.0, 1.0), (2.0, 0.8)]
+        for off, gl in riff:
+            b = sub(NOTE[root], sr, 0.50)
+            place(L, b, at(bar, off), 0.32 * gl)
+            place(R, b, at(bar, off), 0.32 * gl)
+
+        # --- drums
+        for beat in range(4):
+            if bar == 0 and beat not in (0, 2):
+                continue
+            place(L, K, at(bar, beat), 0.88)
+            place(R, K, at(bar, beat), 0.88)
+            if beat in (1, 3):
+                place(L, CL, at(bar, beat), 0.36)
+                place(R, CL, at(bar, beat), 0.35)
+            place(L, HO, at(bar, beat + 0.5), 0.15)
+            place(R, HO, at(bar, beat + 0.5), 0.16)
+            for s_off in (0.25, 0.75):
+                place(L, HH, at(bar, beat + s_off), 0.10)
+                place(R, HH, at(bar, beat + s_off), 0.095)
+
+        # --- arpeggio: 16ths, octave-jumping, panned across the stereo field
+        if full:
+            for i in range(16):
+                nm = ARP[i % len(ARP)]
+                f = NOTE[nm] * (0.5 if (i // 8) % 2 == 1 else 1.0)
+                pl = pluck(f, sr, 0.30)
+                pan = 0.5 + 0.40 * np.sin(i * 1.13)
+                place(L, pl, at(bar, i * 0.25), 0.135 * (1.0 - pan * 0.5))
+                place(R, pl, at(bar, i * 0.25), 0.135 * pan)
+
+        # --- transitions
+        if bar % 4 == 3:
+            r = riser(sr, T.BAR * 0.96, 320.0, 7000.0, seed=21 + bar)
+            place(L, r, at(bar, 0.05), 0.34)
+            place(R, r, at(bar, 0.05), 0.34)
+        if bar % 4 == 0 and bar > 0:
+            im = impact(sr, 1.1, seed=51 + bar)
+            place(L, im, at(bar), 0.70 if (bar // 4) % 2 == 1 else 0.52)
+            place(R, im, at(bar), 0.70 if (bar // 4) % 2 == 1 else 0.52)
+
+    # --- bell lead over the back half
+    for loop in range((T.BARS + 7) // 8):
+        for bar, beat, nm in LEAD:
+            actual_bar = loop * 8 + bar
+            if actual_bar < T.BARS:
+                b = bell(NOTE[nm], sr, 1.8)
+                place(L, b, at(actual_bar, beat), 0.20)
+                place(R, b, at(actual_bar, beat), 0.16)
+
     # --- mix
     L = filt(L, sr, lp(15500, 2.2)).astype(np.float32)
     R = filt(R, sr, lp(15500, 2.2)).astype(np.float32)
@@ -260,8 +263,9 @@ def load_voice(sr=SR):
     # Auto-mix voiceover if assets/voice.wav exists
     voice = load_voice(sr)
     if voice is not None:
-        vl = min(len(st), len(voice))
-        st[:vl] = st[:vl] * 0.42 + voice[:vl] * 0.85
+        head = int(round(1.0 * sr))
+        vl = min(max(0, len(st) - head), len(voice))
+        st[head:head+vl] = st[head:head+vl] * 0.35 + voice[:vl] * 0.88
 
     peak = float(np.abs(st).max())
     st = np.tanh(st / max(peak, 1e-6) * 1.9) / np.tanh(1.9)

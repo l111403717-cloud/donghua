@@ -15,13 +15,15 @@ try:
     from mg import fonts as F
     from mg import anim as A
     from mg.core import clip01, gauss, radial, rgb01, Canvas
-    from mg.transitions import Transition, Slide, Wipe, ZoomThrough, ChannelSnap
+    from mg.transitions import (Transition, Slide, Wipe, ZoomThrough, ChannelSnap,
+                            IrisShutter, FlashBurst, CurtainSplit)
     from mg.timeline import RenderContext
 except ImportError:
     from engine import fonts as F
     from engine import anim as A
     from engine.core import clip01, gauss, radial, rgb01, Canvas
-    from engine.transitions import Transition, Slide, Wipe, ZoomThrough, ChannelSnap
+    from engine.transitions import (Transition, Slide, Wipe, ZoomThrough, ChannelSnap,
+                                IrisShutter, FlashBurst, CurtainSplit)
     from engine.timeline import RenderContext
 
 from . import theme as T

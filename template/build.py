@@ -133,6 +133,20 @@ X264 = ["-c:v", "libx264", "-preset", "slow", "-crf", "16",
 _ASCII_BASE = "C:\\mreel_tmp"
 
 
+def find_ffmpeg() -> str:
+    candidates = [
+        r"D:\github\ffm\ffmpeg-8.1.1-essentials_build\bin\ffmpeg.exe",
+        "ffmpeg",
+    ]
+    for c in candidates:
+        if os.path.exists(c):
+            return c
+    return "ffmpeg"
+
+
+FFMPEG = find_ffmpeg()
+
+
 def _short_root(path):
     r"""给 ffmpeg 一个纯 ASCII 的等价路径（Windows）。
 
@@ -161,7 +175,7 @@ def _short_root(path):
         junc = os.path.join(_ASCII_BASE, "j%08x" % (abs(hash(target)) & 0xFFFFFFFF))
         if not os.path.exists(junc):
             r = subprocess.run(["cmd", "/c", "mklink", "/J", junc, target],
-                               capture_output=True, text=True)
+                               capture_output=True, text=True, encoding="gbk", errors="ignore")
             if r.returncode != 0 or not os.path.exists(junc):
                 return p
         out = os.path.join(junc, *rest) if rest else junc
@@ -172,7 +186,7 @@ def _short_root(path):
 
 def _has_nvenc() -> bool:
     try:
-        out = subprocess.run(["ffmpeg", "-hide_banner", "-encoders"],
+        out = subprocess.run([FFMPEG, "-hide_banner", "-encoders"],
                              capture_output=True, text=True).stdout
     except OSError:
         return False
@@ -181,7 +195,7 @@ def _has_nvenc() -> bool:
 
 def _encode_frames(dst: str, enc: List[str]) -> int:
     return subprocess.run([
-        "ffmpeg", "-y", "-v", "error", "-framerate", str(T.FPS),
+        FFMPEG, "-y", "-v", "error", "-framerate", str(T.FPS),
         # 显式声明从 f0000.png 起（渲染就是 0-based），别依赖各版本默认值。
         # 真正的坑是 _short_root()：ffmpeg 读不了非 ASCII 路径。
         "-start_number", "0", "-i", os.path.join(_short_root(FRAMES), "f%04d.png"), *enc,
@@ -207,7 +221,7 @@ def encode(name: str = "reel") -> str:
         last_err = ""
         for rate in ("384k", "256k", "192k", "128k"):
             p = subprocess.run([
-                "ffmpeg", "-y", "-v", "error",
+                FFMPEG, "-y", "-v", "error",
                 "-i", _short_root(silent), "-i", _short_root(wav),
                 "-c:v", "copy", "-c:a", "aac", "-strict", "-2", "-b:a", rate, "-shortest",
                 "-movflags", "+faststart", _short_root(final),
